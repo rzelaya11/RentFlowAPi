@@ -70,6 +70,16 @@ export class MaintenanceQueryDto {
   @IsUUID()
   unitId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by tenant ID' })
+  @IsOptional()
+  @IsUUID()
+  tenantId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by property ID' })
+  @IsOptional()
+  @IsUUID()
+  propertyId?: string;
+
   @ApiPropertyOptional({ enum: MaintenanceStatus, description: 'Filter by status' })
   @IsOptional()
   @IsEnum(MaintenanceStatus)

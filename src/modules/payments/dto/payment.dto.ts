@@ -95,10 +95,13 @@ export class RecordPaymentDto {
 }
 
 export class GeneratePaymentsDto {
-  @ApiProperty({ example: 'uuid-del-contrato' })
-  @IsUUID()
-  @IsNotEmpty()
-  leaseId: string;
+  @ApiPropertyOptional({
+    example: 'uuid-del-contrato',
+    description: "Lease UUID to generate payments for. Omit (or send 'all') to generate for ALL active leases.",
+  })
+  @IsString()
+  @IsOptional()
+  leaseId?: string;
 
   @ApiProperty({ example: '2026-04-01', description: 'Start of generation range (YYYY-MM-DD)' })
   @IsDateString()
@@ -114,6 +117,21 @@ export class PaymentQueryDto {
   @IsOptional()
   @IsUUID()
   leaseId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by tenant ID' })
+  @IsOptional()
+  @IsUUID()
+  tenantId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by property ID' })
+  @IsOptional()
+  @IsUUID()
+  propertyId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by unit ID' })
+  @IsOptional()
+  @IsUUID()
+  unitId?: string;
 
   @ApiPropertyOptional({ enum: PaymentStatus, description: 'Filter by status' })
   @IsOptional()

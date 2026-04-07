@@ -79,7 +79,7 @@ export class MaintenanceService {
     query: MaintenanceQueryDto,
     user: User,
   ): Promise<PaginatedResponseDto<MaintenanceRequest>> {
-    const { unitId, status, priority, page = 1, limit = 20 } = query;
+    const { unitId, tenantId, propertyId, status, priority, page = 1, limit = 20 } = query;
 
     const qb = this.maintenanceRepository
       .createQueryBuilder('mr')
@@ -91,6 +91,14 @@ export class MaintenanceService {
 
     if (unitId) {
       qb.andWhere('mr.unitId = :unitId', { unitId });
+    }
+
+    if (tenantId) {
+      qb.andWhere('mr.tenantId = :tenantId', { tenantId });
+    }
+
+    if (propertyId) {
+      qb.andWhere('unit.propertyId = :propertyId', { propertyId });
     }
 
     if (status) {

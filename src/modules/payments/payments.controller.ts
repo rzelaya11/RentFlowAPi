@@ -49,11 +49,14 @@ export class PaymentsController {
 
   @Post('generate')
   @ApiOperation({
-    summary: 'Bulk-generate monthly pending payments for an active lease',
-    description: 'Creates one payment per month in the given range using the lease monthlyRent and paymentDay. Skips months that already have a payment.',
+    summary: 'Bulk-generate monthly rent payments',
+    description:
+      "Creates one pending payment per month per lease in the date range. " +
+      "Provide leaseId to target a single lease, or omit it (or send 'all') to generate for ALL active leases. " +
+      "Months that already have a rent payment are skipped. Returns { generated, skipped, total }.",
   })
-  @ApiResponse({ status: 201, description: 'Payments generated successfully' })
-  @ApiResponse({ status: 400, description: 'Lease is not active, or no new payments to generate' })
+  @ApiResponse({ status: 201, description: '{ generated, skipped, total }' })
+  @ApiResponse({ status: 400, description: 'Lease not active, or no active leases found' })
   @ApiResponse({ status: 404, description: 'Lease not found' })
   generateMonthlyPayments(@Body() dto: GeneratePaymentsDto, @CurrentUser() user: User) {
     return this.paymentsService.generateMonthlyPayments(dto, user);

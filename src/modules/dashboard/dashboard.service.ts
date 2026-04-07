@@ -113,60 +113,69 @@ export class DashboardService {
   // ── Income & payments ────────────────────────────────────────────────────────
   private async getIncomeStats(ownerId: string) {
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    // Monthly: pending / paid / partial — bounded to current month
-    const monthlyRows = await this.paymentRepo
-      .createQueryBuilder('payment')
-      .innerJoin('payment.lease', 'lease')
-      .innerJoin('lease.unit', 'unit')
-      .innerJoin('unit.property', 'property')
-      .select('payment.status', 'status')
-      .addSelect('COUNT(payment.id)', 'count')
-      .addSelect('COALESCE(SUM(payment.amount::numeric), 0)', 'total')
-      .where('property.ownerId = :ownerId', { ownerId })
-      .andWhere('payment.dueDate BETWEEN :firstDay AND :lastDay', { firstDay, lastDay })
-      .andWhere('payment.status != :overdue', { overdue: PaymentStatus.OVERDUE })
-      .groupBy('payment.status')
-      .getRawMany();
+    const base = () =>
+      this.paymentRepo
+        .createQueryBuilder('payment')
+        .innerJoin('payment.lease', 'lease')
+        .innerJoin('lease.unit', 'unit')
+        .innerJoin('unit.property', 'property')
+        .where('property.ownerId = :ownerId', { ownerId });
 
-    // All-time overdue: a debt from any past month still counts
-    const overdueRow = await this.paymentRepo
-      .createQueryBuilder('payment')
-      .innerJoin('payment.lease', 'lease')
-      .innerJoin('lease.unit', 'unit')
-      .innerJoin('unit.property', 'property')
-      .select('COUNT(payment.id)', 'count')
-      .addSelect('COALESCE(SUM(payment.amount::numeric), 0)', 'total')
-      .where('property.ownerId = :ownerId', { ownerId })
-      .andWhere('payment.status = :status', { status: PaymentStatus.OVERDUE })
-      .getRawOne();
+    const [paidRow, pendingRow, partialRow, overdueRow] = await Promise.all([
+      // Cobrado este mes: paid_date in current month
+      base()
+        .select('COUNT(payment.id)', 'count')
+        .addSelect('COALESCE(SUM(payment.amount::numeric), 0)', 'total')
+        .andWhere('payment.status = :s', { s: PaymentStatus.PAID })
+        .andWhere('payment.paidDate >= :monthStart AND payment.paidDate < :monthEnd', { monthStart, monthEnd })
+        .getRawOne(),
 
-    const result = {
+      // Pendiente este mes: due_date in current month
+      base()
+        .select('COUNT(payment.id)', 'count')
+        .addSelect('COALESCE(SUM(payment.amount::numeric), 0)', 'total')
+        .andWhere('payment.status = :s', { s: PaymentStatus.PENDING })
+        .andWhere('payment.dueDate >= :monthStart AND payment.dueDate < :monthEnd', { monthStart, monthEnd })
+        .getRawOne(),
+
+      // Parcial: due_date in current month
+      base()
+        .select('COUNT(payment.id)', 'count')
+        .addSelect('COALESCE(SUM(payment.amount::numeric), 0)', 'total')
+        .andWhere('payment.status = :s', { s: PaymentStatus.PARTIAL })
+        .andWhere('payment.dueDate >= :monthStart AND payment.dueDate < :monthEnd', { monthStart, monthEnd })
+        .getRawOne(),
+
+      // All-time overdue: any past month debt counts, no month boundary
+      base()
+        .select('COUNT(payment.id)', 'count')
+        .addSelect('COALESCE(SUM(payment.amount::numeric), 0)', 'total')
+        .andWhere('payment.status = :s', { s: PaymentStatus.OVERDUE })
+        .getRawOne(),
+    ]);
+
+    return {
       currentMonth: now.toISOString().slice(0, 7),
-      paid: { count: 0, total: 0 },
-      pending: { count: 0, total: 0 },
-      overdue: { count: 0, total: 0 },
-      partial: { count: 0, total: 0 },
+      paid: {
+        count: parseInt(paidRow?.count) || 0,
+        total: parseFloat(paidRow?.total) || 0,
+      },
+      pending: {
+        count: parseInt(pendingRow?.count) || 0,
+        total: parseFloat(pendingRow?.total) || 0,
+      },
+      overdue: {
+        count: parseInt(overdueRow?.count) || 0,
+        total: parseFloat(overdueRow?.total) || 0,
+      },
+      partial: {
+        count: parseInt(partialRow?.count) || 0,
+        total: parseFloat(partialRow?.total) || 0,
+      },
     };
-
-    for (const row of monthlyRows) {
-      const key = row.status as keyof Omit<typeof result, 'currentMonth'>;
-      if (result[key] !== undefined) {
-        result[key] = {
-          count: parseInt(row.count) || 0,
-          total: parseFloat(row.total) || 0,
-        };
-      }
-    }
-
-    result.overdue = {
-      count: parseInt(overdueRow?.count) || 0,
-      total: parseFloat(overdueRow?.total) || 0,
-    };
-
-    return result;
   }
 
   // ── Upcoming lease expirations (next 30 days) ────────────────────────────────
