@@ -13,15 +13,16 @@ async function bootstrap() {
   const port = configService.get<number>('app.port') ?? 3000;
   const corsOrigins = configService.get<string[]>('app.corsOrigins');
 
-  // Global prefix
-  app.setGlobalPrefix('api/v1');
-
-  // CORS
+  // CORS — must be before setGlobalPrefix so OPTIONS preflight requests are handled
   app.enableCors({
     origin: corsOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
+    allowedHeaders: 'Content-Type,Authorization',
   });
+
+  // Global prefix
+  app.setGlobalPrefix('api/v1');
 
   // Global pipes
   app.useGlobalPipes(

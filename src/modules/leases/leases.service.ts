@@ -76,10 +76,17 @@ export class LeasesService {
     await this.unitRepository.update(unitId, { status: newStatus });
   }
 
+  // Format a Date as YYYY-MM-DD string (no timezone conversion)
+  private toDateString(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   // Auto-generate initial payments for a newly active lease
   private async createInitialPayments(lease: Lease, advanceMonths: number): Promise<void> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStr = this.toDateString(new Date());
     const paymentsToSave: Partial<Payment>[] = [];
 
     // Deposit payment (if depositAmount > 0)
@@ -87,8 +94,8 @@ export class LeasesService {
       paymentsToSave.push({
         leaseId: lease.id,
         amount: lease.depositAmount,
-        dueDate: today as any,
-        paidDate: today as any,
+        dueDate: todayStr,
+        paidDate: todayStr,
         status: PaymentStatus.PAID,
         method: PaymentMethod.CASH,
         type: PaymentType.DEPOSIT,
@@ -97,14 +104,14 @@ export class LeasesService {
     }
 
     // Advance rent months
-    const startDate = new Date(lease.startDate);
+    const startDate = new Date(lease.startDate + 'T00:00:00');
     for (let i = 0; i < advanceMonths; i++) {
       const dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + i, lease.paymentDay);
       paymentsToSave.push({
         leaseId: lease.id,
         amount: lease.monthlyRent,
-        dueDate: dueDate as any,
-        paidDate: today as any,
+        dueDate: this.toDateString(dueDate),
+        paidDate: todayStr,
         status: PaymentStatus.PAID,
         method: PaymentMethod.CASH,
         type: PaymentType.RENT,
@@ -274,10 +281,10 @@ export class LeasesService {
       );
     }
 
-    lease.endDate = dto.newEndDate as any;
+    lease.endDate = dto.newEndDate;
 
     if (dto.newMonthlyRent !== undefined) {
-      lease.monthlyRent = dto.newMonthlyRent as any;
+      lease.monthlyRent = dto.newMonthlyRent as any; // decimal field, TypeORM handles coercion
     }
 
     if (dto.notes) {

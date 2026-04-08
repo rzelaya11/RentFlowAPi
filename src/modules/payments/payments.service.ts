@@ -180,10 +180,27 @@ export class PaymentsService {
       throw new BadRequestException('Payment has already been recorded as paid');
     }
 
+    // Business rule: cannot pay a newer payment while older overdue ones exist for the same lease
+    const olderOverdue = await this.paymentRepository
+      .createQueryBuilder('p')
+      .where('p.leaseId = :leaseId', { leaseId: payment.leaseId })
+      .andWhere('p.status = :status', { status: PaymentStatus.OVERDUE })
+      .andWhere('p.dueDate < :dueDate', { dueDate: payment.dueDate })
+      .orderBy('p.dueDate', 'ASC')
+      .getMany();
+
+    if (olderOverdue.length > 0) {
+      const oldest = olderOverdue[0];
+      throw new BadRequestException(
+        `No se puede registrar este pago. Existe(n) ${olderOverdue.length} pago(s) vencido(s) ` +
+        `más antiguo(s) para este contrato. Debe pagar primero el pago con vencimiento del ${oldest.dueDate}.`,
+      );
+    }
+
     const paidAmount = dto.amountPaid ?? payment.amount;
     const expectedAmount = Number(payment.amount);
 
-    payment.paidDate = new Date(dto.paidDate ?? new Date().toISOString().split('T')[0]) as any;
+    payment.paidDate = dto.paidDate ?? new Date().toISOString().split('T')[0];
     payment.method = dto.method;
     payment.referenceNumber = dto.referenceNumber ?? payment.referenceNumber;
     payment.notes = dto.notes ?? payment.notes;
@@ -254,11 +271,12 @@ export class PaymentsService {
             .getCount();
 
           if (exists === 0) {
+            const dueDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             toSave.push(
               this.paymentRepository.create({
                 leaseId: lease.id,
                 amount: lease.monthlyRent,
-                dueDate: dueDate as any,
+                dueDate: dueDateStr,
                 status: PaymentStatus.PENDING,
                 type: PaymentType.RENT,
               }),
