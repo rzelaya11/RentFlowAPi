@@ -37,6 +37,9 @@ import { DashboardModule } from '@/modules/dashboard/dashboard.module';
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         synchronize: configService.get<boolean>('database.synchronize'),
         logging: configService.get<boolean>('database.logging'),
+        ssl: configService.get<string>('app.env') === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
       }),
     }),
 

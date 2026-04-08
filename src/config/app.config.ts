@@ -14,6 +14,7 @@ export const databaseConfig = registerAs('database', () => ({
   database: process.env.DB_DATABASE || 'rentflow_db',
   synchronize: process.env.DB_SYNCHRONIZE === 'true',
   logging: process.env.DB_LOGGING === 'true',
+  ssl: process.env.DB_SSL === 'true',
 }));
 
 export const jwtConfig = registerAs('jwt', () => ({
