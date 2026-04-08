@@ -15,10 +15,12 @@ async function bootstrap() {
 
   // CORS — must be before setGlobalPrefix so OPTIONS preflight requests are handled
   app.enableCors({
-    origin: corsOrigins,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    origin: configService.get<string[]>('app.corsOrigins') || ['http://localhost:5173'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     credentials: true,
-    allowedHeaders: 'Content-Type,Authorization',
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
   // Global prefix
